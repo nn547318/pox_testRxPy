@@ -7,7 +7,6 @@ Created on Fri Oct 14 11:13:22 2022
 """
 
 from pox.core import core
-from pox.core import GoingUpEvent
 from pox.datapaths import do_launch
 from pox.datapaths import SwitchLaunchedEvent
 
@@ -34,27 +33,12 @@ class MultipleSwitchesTest (object):
 def launch (address = '127.0.0.1', port = 6633, max_retry_delay = 16,
     dpid = None, ports = '', extra = None, ctl_port = None,
     __INSTANCE__ = None):
-  core.registerNew(MultipleSwitchesTest)  
-  """
-  Launches a switch
-  """
-
-  # if ctl_port:
-  #   if ctl_port is True:
-  #     ctl_port = DEFAULT_CTL_PORT
-
-  #   if core.hasComponent('ctld'):
-  #     if core.ctld.port != ctl_port:
-  #       raise RuntimeError("Only one ctl_port is allowed")
-  #     # We can reuse the exiting one
-  #   else:
-  #     # Create one...
-  #     from . import ctl
-  #     ctl.server(ctl_port)
-  #     core.ctld.addListenerByName("CommandEvent", _do_ctl)
 
   _ports = ports.strip()
   
+  """
+  Launch switches
+  """
   def up (event):
     sw_list = ["S11", "S12", "S13", "S14", "S15"]
     for sw in sw_list:
@@ -68,13 +52,13 @@ def launch (address = '127.0.0.1', port = 6633, max_retry_delay = 16,
         
   def action(state):
     ports = [p for p in _ports.split(",") if p]
-    dpid = state[1:]
+    dpid = state[1:] # strip off 'S': "11", "12", "13"...
     sw = do_launch(PCapSwitch, address, port, max_retry_delay, dpid,
                     ports=ports, extra_args=extra,
                     magic_virtual_port_names = True)
     _switches[state] = sw
     
-    core.raiseEvent(GoingUpEvent(), dpid)
+    core.raiseEvent(SwitchLaunchedEvent(), dpid)
       
   
   core.addListenerByName("UpEvent", up)

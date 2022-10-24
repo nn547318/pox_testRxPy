@@ -89,19 +89,20 @@ def do_launch (cls, address = '127.0.0.1', port = 6633, max_retry_delay = 16,
   port = int(port)
   max_retry_delay = int(max_retry_delay)
 
-  def up (event):
+  def up (event, s_id):
+    if str_to_dpid(s_id) != dpid:
+        return
     import pox.lib.ioworker
     global loop
     loop = pox.lib.ioworker.RecocoIOLoop()
-    #loop.more_debugging = True
     loop.start()
     OpenFlowWorker.begin(loop=loop, addr=address, port=port,
         max_retry_delay=max_retry_delay, switch=switch)
 
   from pox.core import core
 
-  core.addListenerByName("UpEvent", up)
-
+  core._eventMixin_addEvent(SwitchLaunchedEvent)
+  core.addListenerByName("SwitchLaunchedEvent", up,  once=True)
   return switch
 
 
@@ -120,3 +121,8 @@ def softwareswitch (address='127.0.0.1', port = 6633, max_retry_delay = 16,
 
   do_launch(ExpiringSwitch, address, port, max_retry_delay, dpid,
             extra_args = extra)
+
+from pox.lib.revent.revent import Event
+class SwitchLaunchedEvent (Event):
+  """ Fired when switch is launched. """
+  pass
