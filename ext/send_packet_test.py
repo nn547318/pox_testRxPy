@@ -34,53 +34,60 @@ class SendPacketTest (object):
     self.connection = None
     core.addListeners(self)
     core.openflow.addListeners(self)
-    print('addListeners----------------')
     
-  # def _handle_ConnectionUp(self, event):
-  #   print('connection up----------------')
-  #   self.connection = event.connection
-  #   _switches[0].set_connection(self.connection)
     
 def launch (address = '127.0.0.1', port = 6633, max_retry_delay = 16,
     dpid = None, ports = '', extra = None, ctl_port = None,
     __INSTANCE__ = None):
-
-  # core.registerNew(MyComponent)
-  # core.registerNew(SendPacketTest)
-  # _ports = ports.strip()
   
   """
+  Create an 'arp' request and send it to the controller.
   """
-
-        
   def action(event):
 
-    sid = '12'
-    sw = do_launch(SoftwareSwitch, address, port, max_retry_delay, dpid=sid,
+    sid_11 = '11'
+    sw = do_launch(SoftwareSwitch, address, port, max_retry_delay, dpid=sid_11,
                     ports=2, extra_args=extra)
-                    #magic_virtual_port_names = True)
-    _switches[0] = sw
-    core.raiseEvent(SwitchLaunchedEvent(), sid)
-    # print('switch ports:', sw.ports)
+    core.raiseEvent(SwitchLaunchedEvent(), sid_11)
     
     r = arp()
     r.opcode = arp.REQUEST
-    r.hwdst = EthAddr('02:00:01:01:00:02')
-    r.hwsrc = EthAddr('02:00:01:01:00:01')
-    r.protodst = IPAddr("127.0.0.1")
+    port1 = sw.ports[1]
+    port2 = sw.ports[2]
+    r.hwdst = port2.hw_addr # e.g: '02:00:01:01:00:02'
+    r.hwsrc = port1.hw_addr
+
+    r.protodst = IPAddr("0.0.0.0")#IP_ANY
     # src is IP_ANY
-    eth = ethernet(type=ethernet.ARP_TYPE, src=r.hwsrc, dst=r.hwdst)
-    eth.payload = r
-    # log.debug("%i %i sending ARP REQ to %s %s",
-    #           macEntry.dpid, macEntry.port, str(r.hwdst), str(r.protodst))
-    port_no = sw.ports[2].port_no #type of port: pox.openflow.libopenflow_01.ofp_phy_port
+    eth1 = ethernet(type=ethernet.ARP_TYPE, src=port1.hw_addr, dst=port2.hw_addr)
+    eth1.payload = r
     
+    #send eth1 with the source as port1
+    source = reactivex.of(sw).pipe(
+        operators.delay(1.0)
+     )
+    source.subscribe(
+        on_next = lambda i: sw.send_packet_in(in_port = port1.port_no, packet=eth1)#sendMessage(sid, msg)
+     )
+    
+    #send another packet with the source as port2
+    eth2 = ethernet(type=ethernet.ARP_TYPE, src=port2.hw_addr, dst=port1.hw_addr)
+    eth2.payload = r
     source = reactivex.of(sw).pipe(
         operators.delay(3.0)
-        )
+      )
     source.subscribe(
-        on_next = lambda i: sw.send_packet_in(in_port = port_no, packet=eth)#sendMessage(sid, msg)
-        )
+        on_next = lambda i: sw.send_packet_in(in_port = port2.port_no, packet=eth2)
+      )
+     
+
+    #send eth1 again
+    source = reactivex.of(sw).pipe(
+        operators.delay(5.0)
+      )
+    source.subscribe(
+        on_next = lambda i: sw.send_packet_in(in_port = port1.port_no, packet=eth1)
+      )
     
     def sendMessage(sid, msg):
       dpid = int('0x'+sid, 16)

@@ -24,6 +24,19 @@ class MyComponent (object):
 
   def _handle_ConnectionUp (self, event):
     log.info("Switch %s has come up.", dpid_to_str(event.dpid))
+    print(core.openflow)
+  
+  def _handle_PacketIn (self, event):
+    """
+    Handles packet in messages from the switch.
+    """
+
+    log.info("Handle packet in...")
+    packet = event.parsed # This is the parsed packet data.
+    if not packet.parsed:
+      log.warning("Ignoring incomplete packet")
+      return
+    print("done!!!!")
     
   def _handle_PortStatus (self, event):
     if event.added:
